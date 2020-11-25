@@ -7,7 +7,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 class StudyApplicationTests {
 
     @Test
-    void contextLoads() {
+    void TestKafka() {
+
+
+
+
+
     }
 
 }
