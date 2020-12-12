@@ -1,5 +1,6 @@
 package com.xuyiyi.study.kafka.entity;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.util.Date;
@@ -10,14 +11,19 @@ import java.util.Date;
  * @create 2020-11-25 21:44
  */
 @Data
+@AllArgsConstructor
 public class Message {
 
-
-    private Long id;
+    private int id;
 
     private String msg;
 
-    private Date sendTime;
 
-
+    @Override
+    public String toString() {
+        return "Message{" +
+                "id=" + id +
+                ", msg='" + msg + '\'' +
+                '}';
+    }
 }

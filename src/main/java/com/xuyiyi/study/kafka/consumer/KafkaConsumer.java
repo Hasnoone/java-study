@@ -1,4 +1,4 @@
-package com.xuyiyi.study.kafka.producer;
+package com.xuyiyi.study.kafka.consumer;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
