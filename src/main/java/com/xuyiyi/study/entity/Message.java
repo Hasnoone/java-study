@@ -1,9 +1,7 @@
-package com.xuyiyi.study.kafka.entity;
+package com.xuyiyi.study.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-
-import java.util.Date;
 
 /**
  * @author Daguji

@@ -1,6 +1,6 @@
 package com.xuyiyi.study.kafka.producer;
 
-import com.xuyiyi.study.kafka.entity.Message;
+import com.xuyiyi.study.entity.Message;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -28,16 +28,19 @@ public class KafkaProducer {
     private KafkaTemplate<String, String> kafkaTemplate;
 
 
+    /**
+     * 异步推送
+     * @param message
+     * @throws InterruptedException
+     * @throws ExecutionException
+     * @throws TimeoutException
+     */
     public void sendMessageSync(Message message) throws InterruptedException, ExecutionException, TimeoutException {
         kafkaTemplate.send(topic, message.toString()).get(10, TimeUnit.SECONDS);
     }
 
-
-
-
-
     /**
-     * 同步推送
+     * 异步推送
      */
     public void sendMessageAsync(Message message) {
         ListenableFuture<SendResult<String, String>> future = kafkaTemplate.send(topic, message.toString());

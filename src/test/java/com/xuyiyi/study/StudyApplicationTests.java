@@ -1,6 +1,6 @@
 package com.xuyiyi.study;
 
-import com.xuyiyi.study.kafka.entity.Message;
+import com.xuyiyi.study.entity.Message;
 import com.xuyiyi.study.kafka.consumer.KafkaConsumer;
 import com.xuyiyi.study.kafka.producer.KafkaProducer;
 import org.junit.jupiter.api.Test;
