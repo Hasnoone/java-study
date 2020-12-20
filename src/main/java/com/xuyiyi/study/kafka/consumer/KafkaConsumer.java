@@ -31,10 +31,18 @@ public class KafkaConsumer {
     }
 
 
+
     @KafkaListener(id = "myGroup",topics = {"abc123"},containerFactory = "kafkaCustomizeFactory")
     public void consumerListener(ConsumerRecord<String, String> record, Acknowledgment ack) {
-        log.info(record.value());
+//    @KafkaListener(id = "myGroup",topics = {"abc123"},containerFactory = "batchFactory")
+//    public void consumerListener(List<ConsumerRecord<String, String>> records, Acknowledgment ack) {
+        log.info("消费消息" + Thread.currentThread().getName() + ":" + record.value());
 
+//        records.forEach(record -> {
+//            String value = record.value();
+//            log.info("消费消息" + Thread.currentThread().getName() + ":" + value);
+//        });
+//        ack.acknowledge();//启用这句话的话,就会开启手动提交
     }
 
 

@@ -45,18 +45,8 @@ public class KafkaProducer {
     public void sendMessageAsync(Message message) {
         ListenableFuture<SendResult<String, String>> future = kafkaTemplate.send(topic, message.toString());
 
-        future.addCallback(new ListenableFutureCallback<SendResult<String, String>>() {
-            @Override
-            public void onFailure(Throwable throwable) {
-                log.info(" - 生产者 发送消息失败：" + throwable.getMessage());
-            }
-
-            @Override
-            public void onSuccess(SendResult<String, String> stringStringSendResult) {
-                log.info( " - 生产者 发送消息成功：" + stringStringSendResult.toString());
-            }
-        });
-
+        future.addCallback(result -> log.info("生产者成功发送消息到topic:{} partition:{}的消息", result.getRecordMetadata().topic(), result.getRecordMetadata().partition()),
+                ex -> log.error("生产者发送消失败，原因：{}", ex.getMessage()));
     }
 
 }

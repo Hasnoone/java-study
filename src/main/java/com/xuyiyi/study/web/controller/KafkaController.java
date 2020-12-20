@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 
 @RestController
 public class KafkaController implements KafkaApi {
@@ -25,5 +27,15 @@ public class KafkaController implements KafkaApi {
     @Override
     public String sentMsg(@RequestBody Message msg) {
         return kafkaService.sentMsg(msg);
+    }
+
+    @Override
+    public String createTopic(String topicName) {
+        return kafkaService.createTopic(topicName);
+    }
+
+    @Override
+    public List<String> listAllTopic() {
+        return kafkaService.listAllTopic();
     }
 }

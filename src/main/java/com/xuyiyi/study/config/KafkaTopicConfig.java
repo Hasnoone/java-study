@@ -144,12 +144,13 @@ public class KafkaTopicConfig {
     }
 
 
-    @Bean
+    @Bean(name = "batchFactory")
     public KafkaListenerContainerFactory<?> batchFactory() {
         ConcurrentKafkaListenerContainerFactory<Integer, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(consumerConfigs()));
         //设置为批量消费，每个批次数量在Kafka配置参数中设置ConsumerConfig.MAX_POLL_RECORDS_CONFIG
         factory.setBatchListener(true);
+        factory.setConcurrency(4);
         // set the retry template
 //        factory.setRetryTemplate(retryTemplate());
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
