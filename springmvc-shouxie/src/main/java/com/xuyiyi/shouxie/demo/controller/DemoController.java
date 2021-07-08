@@ -7,7 +7,7 @@ import com.xuyiyi.shouxie.mvcframework.annotation.MyController;
 import com.xuyiyi.shouxie.mvcframework.annotation.MyRequestMapping;
 
 @MyController
-@MyRequestMapping("demo")
+@MyRequestMapping("/demo")
 public class DemoController {
 
 
