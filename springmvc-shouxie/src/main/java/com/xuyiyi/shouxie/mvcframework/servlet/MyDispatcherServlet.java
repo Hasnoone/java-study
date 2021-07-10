@@ -4,6 +4,7 @@ import com.xuyiyi.shouxie.mvcframework.annotation.MyAutowired;
 import com.xuyiyi.shouxie.mvcframework.annotation.MyController;
 import com.xuyiyi.shouxie.mvcframework.annotation.MyRequestMapping;
 import com.xuyiyi.shouxie.mvcframework.annotation.MyService;
+import com.xuyiyi.shouxie.mvcframework.pojo.Handler;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -27,6 +28,9 @@ public class MyDispatcherServlet extends HttpServlet {
     private List<String> classNames = new ArrayList<>();
 
     private Map<String, Object> ioc = new ConcurrentHashMap<>();
+
+
+    private Map<String, Method> handlerMapping = new HashMap<>();
 
 
     @Override
@@ -89,11 +93,13 @@ public class MyDispatcherServlet extends HttpServlet {
                 if (!clazz.isAnnotationPresent(MyRequestMapping.class)) {
                     continue;
                 }
-
                 MyRequestMapping annotation = method.getAnnotation(MyRequestMapping.class);
-                String value = annotation.value();
-                baseUrl += value;
+                String value = annotation.value(); //test
+                //拼接路径
+                String url = baseUrl + value;
 
+
+                handlerMapping.put(url, method);
 
             }
 
