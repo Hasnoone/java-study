@@ -8,7 +8,7 @@ public class DemoServiceImpl implements DemoService {
 
 
     @Override
-    public void test() {
-        System.out.println("===============");
+    public void test(String name) {
+        System.out.println(name+"===============");
     }
 }
