@@ -5,6 +5,7 @@ import com.xuyiyi.shouxie.mvcframework.annotation.MyController;
 import com.xuyiyi.shouxie.mvcframework.annotation.MyRequestMapping;
 import com.xuyiyi.shouxie.mvcframework.annotation.MyService;
 import com.xuyiyi.shouxie.mvcframework.pojo.Handler;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -15,9 +16,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MyDispatcherServlet extends HttpServlet {
 
@@ -30,7 +35,8 @@ public class MyDispatcherServlet extends HttpServlet {
     private Map<String, Object> ioc = new ConcurrentHashMap<>();
 
 
-    private Map<String, Method> handlerMapping = new HashMap<>();
+//    private Map<String, Method> handlerMapping = new HashMap<>();
+    private List<Handler> handlerMapping = new ArrayList<>();
 
 
     @Override
@@ -40,8 +46,88 @@ public class MyDispatcherServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        super.doPost(req, resp);
+        //处理请求。根据url找到对应的处理方法
+//        String requestURI = req.getRequestURI();
+//        Method method = handlerMapping.get(requestURI);
+        //反射调用  出现问题：invoke(java.lang.Object obj, java.lang.Object... args) 我们并没有存这两个参数
+        //没有对象，没有参数
+        //进行initHandlerMapping改造
+//        method.invoke();
+
+        Handler handler = getHandler(req);
+
+        if(handler == null) {
+            resp.getWriter().write("404 not found");
+            return;
+        }
+
+        // 参数绑定
+        // 获取所有参数类型数组，这个数组的长度就是我们最后要传入的args数组的长度
+        Class<?>[] parameterTypes = handler.getMethod().getParameterTypes();
+
+
+        // 根据上述数组长度创建一个新的数组（参数数组，是要传入反射调用的）
+        Object[] paraValues = new Object[parameterTypes.length];
+
+        // 以下就是为了向参数数组中塞值，而且还得保证参数的顺序和方法中形参顺序一致
+
+        Map<String, String[]> parameterMap = req.getParameterMap();
+
+        // 遍历request中所有参数  （填充除了request，response之外的参数）
+        for(Map.Entry<String,String[]> param: parameterMap.entrySet()) {
+            // name=1&name=2   name [1,2]
+            String value = StringUtils.join(param.getValue(), ",");  // 如同 1,2
+
+            // 如果参数和方法中的参数匹配上了，填充数据
+            if(!handler.getParamMapping().containsKey(param.getKey())) {continue;}
+
+            // 方法形参确实有该参数，找到它的索引位置，对应的把参数值放入paraValues
+            Integer index = handler.getParamMapping().get(param.getKey());//name在第 2 个位置
+
+            paraValues[index] = value;  // 把前台传递过来的参数值填充到对应的位置去
+
+        }
+
+
+        int requestIndex = handler.getParamMapping().get(HttpServletRequest.class.getSimpleName()); // 0
+        paraValues[requestIndex] = req;
+
+
+        int responseIndex = handler.getParamMapping().get(HttpServletResponse.class.getSimpleName()); // 1
+        paraValues[responseIndex] = resp;
+
+
+
+
+        // 最终调用handler的method属性
+        try {
+            handler.getMethod().invoke(handler.getController(),paraValues);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        }
+
+
     }
+
+
+    private Handler getHandler(HttpServletRequest request) {
+        if (handlerMapping.isEmpty()) {
+            return null;
+        }
+        String requestURI = request.getRequestURI();
+        for (Handler handler : handlerMapping) {
+
+            Matcher matcher = handler.getPattern().matcher(requestURI);
+            if (!matcher.matches()) {
+                continue;
+            }
+            return handler;
+        }
+        return null;
+    }
+
 
     @Override
     public void init(ServletConfig config) throws ServletException {
@@ -67,39 +153,60 @@ public class MyDispatcherServlet extends HttpServlet {
     }
 
     /**
-     * 构造HanlderMapping
+     * 构造HandlerMapping
      */
     private void initHandlerMapping() {
-        if (ioc.isEmpty()) {
-            return;
-        }
-        String baseUrl = "";
-        for (Map.Entry<String, Object> bean : ioc.entrySet()) {
-            Class<?> clazz = bean.getValue().getClass();
-            boolean isController = clazz.isAnnotationPresent(MyController.class);
-            if (!isController) {
-                continue;
-            }
-            boolean isRequestMapping = clazz.isAnnotationPresent(MyRequestMapping.class);
-            if (isRequestMapping) {
-                MyRequestMapping annotation = clazz.getAnnotation(MyRequestMapping.class);
-                String value = annotation.value();//获取到controller上的 requestmapping的赋值 @MyRequestMapping("/demo")  /demo
-                baseUrl += value;
+        if(ioc.isEmpty()) {return;}
+
+        for(Map.Entry<String,Object> entry: ioc.entrySet()) {
+            // 获取ioc中当前遍历的对象的class类型
+            Class<?> aClass = entry.getValue().getClass();
+
+
+            if(!aClass.isAnnotationPresent(MyController.class)) {continue;}
+
+
+            String baseUrl = "";
+            if(aClass.isAnnotationPresent(MyRequestMapping.class)) {
+                MyRequestMapping annotation = aClass.getAnnotation(MyRequestMapping.class);
+                baseUrl = annotation.value(); // 等同于/demo
             }
 
-            //获取方法
-            Method[] methods = clazz.getMethods();
-            for (Method method : methods) {
-                if (!clazz.isAnnotationPresent(MyRequestMapping.class)) {
-                    continue;
-                }
+
+            // 获取方法
+            Method[] methods = aClass.getMethods();
+            for (int i = 0; i < methods.length; i++) {
+                Method method = methods[i];
+
+                //
+                if(!method.isAnnotationPresent(MyRequestMapping.class)) {continue;}
+
+                // 如果标识，就处理
                 MyRequestMapping annotation = method.getAnnotation(MyRequestMapping.class);
-                String value = annotation.value(); //test
-                //拼接路径
-                String url = baseUrl + value;
+                String methodUrl = annotation.value();  // /query
+                String url = baseUrl + methodUrl;    // 计算出来的url /demo/query
+
+                // 把method所有信息及url封装为一个Handler
+                Handler handler = new Handler(entry.getValue(),method, Pattern.compile(url));
 
 
-                handlerMapping.put(url, method);
+                // 计算方法的参数位置信息  // query(HttpServletRequest request, HttpServletResponse response,String name)
+                Parameter[] parameters = method.getParameters();
+                for (int j = 0; j < parameters.length; j++) {
+                    Parameter parameter = parameters[j];
+
+                    if(parameter.getType() == HttpServletRequest.class || parameter.getType() == HttpServletResponse.class) {
+                        // 如果是request和response对象，那么参数名称写HttpServletRequest和HttpServletResponse
+                        handler.getParamMapping().put(parameter.getType().getSimpleName(),j);
+                    }else{
+                        handler.getParamMapping().put(parameter.getName(),j);  // <name,2>
+                    }
+
+                }
+
+
+                // 建立url和method之间的映射关系（map缓存起来）
+                handlerMapping.add(handler);
 
             }
 
@@ -152,48 +259,51 @@ public class MyDispatcherServlet extends HttpServlet {
      * 初始化bean对象（实现IOC容器，基于注解）
      */
     private void doInstance() {
+        if(classNames.size() == 0) return;
 
-        if (classNames.size() == 0) {
-            return;
-        }
+        try{
 
-        for (int i = 0; i < classNames.size(); i++) {
-            String className = classNames.get(i);
-            //反射
-            try {
-                Class<?> clazz = Class.forName(className);
-                //区分controller还是Service
-                if (clazz.isAnnotationPresent(MyController.class)) {
-                    String simpleName = clazz.getSimpleName();//MyController
-                    //首字母小写
-                    String lowerFirstSimpleName = lowerFirst(simpleName);//myController
-                    Object o = clazz.newInstance();
-                    ioc.put(lowerFirstSimpleName, o);
-                } else if (clazz.isAnnotationPresent(MyService.class)) {
-                    MyService annotation = clazz.getAnnotation(MyService.class);
+            for (int i = 0; i < classNames.size(); i++) {
+                String className =  classNames.get(i);  //
+
+                // 反射
+                Class<?> aClass = Class.forName(className);
+                // 区分controller，区分service'
+                if(aClass.isAnnotationPresent(MyController.class)) {
+                    // controller的id此处不做过多处理，不取value了，就拿类的首字母小写作为id，保存到ioc中
+                    String simpleName = aClass.getSimpleName();// DemoController
+                    String lowerFirstSimpleName = lowerFirst(simpleName); // demoController
+                    Object o = aClass.newInstance();
+                    ioc.put(lowerFirstSimpleName,o);
+                }else if(aClass.isAnnotationPresent(MyService.class)) {
+                    MyService annotation = aClass.getAnnotation(MyService.class);
+                    //获取注解value值
                     String beanName = annotation.value();
-                    if (!"".equals(beanName)) {
-                        ioc.put(beanName, clazz.newInstance());
-                    } else {
-                        ioc.put(lowerFirst(clazz.getSimpleName()), clazz.newInstance());
+
+                    // 如果指定了id，就以指定的为准
+                    if(!"".equals(beanName.trim())) {
+                        ioc.put(beanName,aClass.newInstance());
+                    }else{
+                        // 如果没有指定，就以类名首字母小写
+                        beanName = lowerFirst(aClass.getSimpleName());
+                        ioc.put(beanName,aClass.newInstance());
                     }
 
-                    Class<?>[] interfaces = clazz.getInterfaces();
-                    for (int i1 = 0; i1 < interfaces.length; i1++) {
-                        Class<?> anInterface = interfaces[i1];
-                        ioc.put(anInterface.getName(), anInterface.newInstance());
-                    }
 
-                } else {
+                    // service层往往是有接口的，面向接口开发，此时再以接口名为id，放入一份对象到ioc中，便于后期根据接口类型注入
+                    Class<?>[] interfaces = aClass.getInterfaces();
+                    for (int j = 0; j < interfaces.length; j++) {
+                        Class<?> anInterface = interfaces[j];
+                        // 以接口的全限定类名作为id放入
+                        ioc.put(anInterface.getName(),aClass.newInstance());
+                    }
+                }else{
                     continue;
                 }
 
-
-            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
-                e.printStackTrace();
             }
-
-
+        }catch (Exception e) {
+            e.printStackTrace();
         }
 
 
@@ -221,14 +331,16 @@ public class MyDispatcherServlet extends HttpServlet {
         File pack = new File(scanPackagePath);
 
         File[] files = pack.listFiles();
-        for (File file : files) {
-            if (file.isDirectory()) {
-                doScan(scanPackage + "." + file.getName());
 
-            } else if (file.getName().endsWith(".class")) {
+        for(File file: files) {
+            if(file.isDirectory()) { // 子package
+                // 递归
+                doScan(scanPackage + "." + file.getName());  // com.lagou.demo.controller
+            }else if(file.getName().endsWith(".class")) {
                 String className = scanPackage + "." + file.getName().replaceAll(".class", "");
                 classNames.add(className);
             }
+
         }
 
 

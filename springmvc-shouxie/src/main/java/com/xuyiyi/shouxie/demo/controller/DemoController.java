@@ -17,7 +17,6 @@ public class DemoController {
 
     @MyRequestMapping(value = "/test")
     public void test() {
-
         demoService.test();
         System.out.println("hhhhhhhhh");
 

@@ -1,6 +1,7 @@
 package com.xuyiyi.shouxie.mvcframework.pojo;
 
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -20,6 +21,13 @@ public class Handler {
 
     private Map<String, Integer> paramMapping;//参数顺序，跟url进行进行绑定，key是参数名 value是代表第几个参数
 
+
+    public Handler(Object controller, Method method, Pattern pattern) {
+        this.controller = controller;
+        this.method = method;
+        this.pattern = pattern;
+        this.paramMapping = new HashMap<>();
+    }
 
     public Object getController() {
         return controller;
