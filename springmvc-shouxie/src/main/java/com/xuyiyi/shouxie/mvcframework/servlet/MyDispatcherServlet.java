@@ -88,16 +88,11 @@ public class MyDispatcherServlet extends HttpServlet {
 
         }
 
-
         int requestIndex = handler.getParamMapping().get(HttpServletRequest.class.getSimpleName()); // 0
         paraValues[requestIndex] = req;
 
-
         int responseIndex = handler.getParamMapping().get(HttpServletResponse.class.getSimpleName()); // 1
         paraValues[responseIndex] = resp;
-
-
-
 
         // 最终调用handler的method属性
         try {
@@ -107,7 +102,6 @@ public class MyDispatcherServlet extends HttpServlet {
         } catch (InvocationTargetException e) {
             e.printStackTrace();
         }
-
 
     }
 
@@ -133,21 +127,18 @@ public class MyDispatcherServlet extends HttpServlet {
     public void init(ServletConfig config) throws ServletException {
         //1、加载配置文件  springmvc.properties
         String contextConfigLocation = config.getInitParameter("contextConfigLocation");
+        //加载配置
         doLoadConfig(contextConfigLocation);
-
         //2、扫描注解
         doScan(properties.getProperty("scanPackage"));
-
         //3、初始化bean对象（实现IOC容器，基于注解）
         //基于classNames缓存的类的全限定名、以及反射技术，完成对象的创建和管理
         doInstance();
-
         //4、实现依赖注入
         doAutowired();
-
         //5、构造HandlerMapping，降配置好的url和method建立映射关系
         initHandlerMapping();
-
+        //初始化完成
         System.out.println("Spring mvc 初始化完成");
 
     }
