@@ -1,9 +1,6 @@
 package com.xuyiyi.shouxie.mvcframework.servlet;
 
-import com.xuyiyi.shouxie.mvcframework.annotation.MyAutowired;
-import com.xuyiyi.shouxie.mvcframework.annotation.MyController;
-import com.xuyiyi.shouxie.mvcframework.annotation.MyRequestMapping;
-import com.xuyiyi.shouxie.mvcframework.annotation.MyService;
+import com.xuyiyi.shouxie.mvcframework.annotation.*;
 import com.xuyiyi.shouxie.mvcframework.pojo.Handler;
 import org.apache.commons.lang3.StringUtils;
 
@@ -34,8 +31,10 @@ public class MyDispatcherServlet extends HttpServlet {
 
     private Map<String, Object> ioc = new ConcurrentHashMap<>();
 
+    //key-> url,value->白名单集合
+    private Map<String, List<String>> userNameWhiteList = new ConcurrentHashMap<>();
 
-//    private Map<String, Method> handlerMapping = new HashMap<>();
+
     private List<Handler> handlerMapping = new ArrayList<>();
 
 
@@ -46,15 +45,9 @@ public class MyDispatcherServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        //处理请求。根据url找到对应的处理方法
-//        String requestURI = req.getRequestURI();
-//        Method method = handlerMapping.get(requestURI);
-        //反射调用  出现问题：invoke(java.lang.Object obj, java.lang.Object... args) 我们并没有存这两个参数
-        //没有对象，没有参数
-        //进行initHandlerMapping改造
-//        method.invoke();
-
         Handler handler = getHandler(req);
+        resp.setCharacterEncoding("utf-8");
+        resp.setHeader("Content-Type", "text/html;charset=utf-8");
 
         if(handler == null) {
             resp.getWriter().write("404 not found");
@@ -76,7 +69,23 @@ public class MyDispatcherServlet extends HttpServlet {
         // 遍历request中所有参数  （填充除了request，response之外的参数）
         for(Map.Entry<String,String[]> param: parameterMap.entrySet()) {
             // name=1&name=2   name [1,2]
+            String paramName = param.getKey();
             String value = StringUtils.join(param.getValue(), ",");  // 如同 1,2
+
+
+            //对参数进行校验
+            if (paramName.equals("name")) {
+                Pattern pattern = handler.getPattern();
+                String pattern1 = pattern.pattern();
+                List<String> userNames = userNameWhiteList.get(pattern1);
+                if (null != userNames && userNames.size() > 0) {
+                    if (!userNames.contains(value)) {
+                        resp.getWriter().write("暂无访问当前url："+pattern1+"权限");
+                        return;
+                    }
+                }
+            }
+
 
             // 如果参数和方法中的参数匹配上了，填充数据
             if(!handler.getParamMapping().containsKey(param.getKey())) {continue;}
@@ -93,6 +102,9 @@ public class MyDispatcherServlet extends HttpServlet {
 
         int responseIndex = handler.getParamMapping().get(HttpServletResponse.class.getSimpleName()); // 1
         paraValues[responseIndex] = resp;
+
+
+
 
         // 最终调用handler的method属性
         try {
@@ -148,60 +160,49 @@ public class MyDispatcherServlet extends HttpServlet {
      */
     private void initHandlerMapping() {
         if(ioc.isEmpty()) {return;}
-
         for(Map.Entry<String,Object> entry: ioc.entrySet()) {
             // 获取ioc中当前遍历的对象的class类型
             Class<?> aClass = entry.getValue().getClass();
-
-
             if(!aClass.isAnnotationPresent(MyController.class)) {continue;}
-
-
             String baseUrl = "";
             if(aClass.isAnnotationPresent(MyRequestMapping.class)) {
                 MyRequestMapping annotation = aClass.getAnnotation(MyRequestMapping.class);
                 baseUrl = annotation.value(); // 等同于/demo
             }
-
-
             // 获取方法
             Method[] methods = aClass.getMethods();
             for (int i = 0; i < methods.length; i++) {
                 Method method = methods[i];
-
-                //
                 if(!method.isAnnotationPresent(MyRequestMapping.class)) {continue;}
-
                 // 如果标识，就处理
                 MyRequestMapping annotation = method.getAnnotation(MyRequestMapping.class);
                 String methodUrl = annotation.value();  // /query
                 String url = baseUrl + methodUrl;    // 计算出来的url /demo/query
-
                 // 把method所有信息及url封装为一个Handler
                 Handler handler = new Handler(entry.getValue(),method, Pattern.compile(url));
-
-
                 // 计算方法的参数位置信息  // query(HttpServletRequest request, HttpServletResponse response,String name)
                 Parameter[] parameters = method.getParameters();
                 for (int j = 0; j < parameters.length; j++) {
                     Parameter parameter = parameters[j];
-
                     if(parameter.getType() == HttpServletRequest.class || parameter.getType() == HttpServletResponse.class) {
                         // 如果是request和response对象，那么参数名称写HttpServletRequest和HttpServletResponse
                         handler.getParamMapping().put(parameter.getType().getSimpleName(),j);
                     }else{
                         handler.getParamMapping().put(parameter.getName(),j);  // <name,2>
                     }
-
                 }
-
-
                 // 建立url和method之间的映射关系（map缓存起来）
                 handlerMapping.add(handler);
-
+                //对@Mysecurity注解进行处理
+                if (method.isAnnotationPresent(MySecurity.class)) {
+                    MySecurity mySecurityAnnotation = method.getAnnotation(MySecurity.class);
+                    String[] value = mySecurityAnnotation.value();
+                    if (value != null) {
+                        List<String> whiteList = Arrays.asList(value);
+                        userNameWhiteList.put(url, whiteList);
+                    }
+                }
             }
-
-
         }
 
 
