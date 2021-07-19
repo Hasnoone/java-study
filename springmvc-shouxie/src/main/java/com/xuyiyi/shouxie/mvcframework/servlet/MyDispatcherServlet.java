@@ -32,6 +32,7 @@ public class MyDispatcherServlet extends HttpServlet {
     private Map<String, Object> ioc = new ConcurrentHashMap<>();
 
     //key-> url,value->白名单集合
+    // 此处定义一个map来存储url访问白名单
     private Map<String, List<String>> userNameWhiteList = new ConcurrentHashMap<>();
 
 
