@@ -1,0 +1,11 @@
+person:
+  family: 哈哈,呵呵
+  hobby: 吃饭,打架,睡觉
+  id: 1
+  map:
+    k1: v1
+    k2: v2
+  name: zhangdachui
+  pet:
+    name: 哈哈哈
+    type: dog
